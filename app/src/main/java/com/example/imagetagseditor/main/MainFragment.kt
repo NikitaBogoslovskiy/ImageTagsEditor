@@ -2,17 +2,24 @@ package com.example.imagetagseditor.main
 
 import android.app.Activity
 import android.content.Intent
-import android.graphics.Bitmap
-import androidx.fragment.app.viewModels
+import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
-import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.ImageView
+import androidx.exifinterface.media.ExifInterface
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.example.imagetagseditor.R
+import com.example.imagetagseditor.main.adapter.ViewAdapter
+import com.example.imagetagseditor.model.ImageData
+import java.lang.reflect.Field
+
 
 class MainFragment : Fragment() {
 
@@ -22,8 +29,16 @@ class MainFragment : Fragment() {
     }
 
     private val viewModel: MainViewModel by viewModels()
+    private val imageData = ImageData(emptyMap())
+    private lateinit var adapter: ViewAdapter
     private lateinit var imageView: ImageView
     private lateinit var loadButton: Button
+    private lateinit var recyclerView: RecyclerView
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        adapter = ViewAdapter(imageData.tags)
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -33,6 +48,9 @@ class MainFragment : Fragment() {
         imageView = view.findViewById(R.id.image_view)
         loadButton = view.findViewById(R.id.load)
         loadButton.setOnClickListener { openImage() }
+        recyclerView = view.findViewById(R.id.tags_list)
+        recyclerView.layoutManager = LinearLayoutManager(context)
+        recyclerView.adapter = adapter
         return view
     }
 
@@ -54,5 +72,21 @@ class MainFragment : Fragment() {
             return
         val pickedImage = intent.data ?: return
         imageView.setImageURI(pickedImage)
+        val tags = loadExifTags(pickedImage)
+        imageData.tags.clear()
+        imageData.tags.addAll(tags)
+        adapter.update()
+    }
+
+    private fun loadExifTags(uri: Uri): MutableList<Pair<String, String>> {
+        val inputStream = context?.contentResolver?.openInputStream(uri)
+        val metadata = ExifInterface(inputStream!!)
+        val tags = emptyList<Pair<String, String>>().toMutableList()
+        ImageData.tagNames.forEach {
+            val tag = metadata.getAttribute(it)
+            if (!tag.isNullOrEmpty())
+                tags.add(Pair(it, tag))
+        }
+        return tags
     }
 }
