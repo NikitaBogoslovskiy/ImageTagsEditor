@@ -4,5 +4,4 @@ import android.net.Uri
 import android.widget.ImageView
 import androidx.lifecycle.ViewModel
 
-class MainViewModel : ViewModel() {
-}
+class MainViewModel : ViewModel() { }

@@ -25,5 +25,13 @@ class ImageData(tags: Map<String, String>) {
             ExifInterface.TAG_BRIGHTNESS_VALUE,
             ExifInterface.TAG_EXPOSURE_TIME,
         )
+
+        val editableTagNames = listOf(
+            ExifInterface.TAG_DATETIME,
+            ExifInterface.TAG_MODEL,
+            ExifInterface.TAG_DEVICE_SETTING_DESCRIPTION,
+            ExifInterface.TAG_GPS_LATITUDE,
+            ExifInterface.TAG_GPS_LONGITUDE
+        )
     }
 }
