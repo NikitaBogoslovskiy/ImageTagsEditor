@@ -12,7 +12,6 @@ import android.widget.Button
 import android.widget.ImageView
 import androidx.exifinterface.media.ExifInterface
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.viewModels
 import androidx.navigation.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -24,21 +23,19 @@ import com.example.imagetagseditor.model.ImageData
 class MainFragment : Fragment() {
 
     companion object {
-        fun newInstance() = MainFragment()
         const val REQUEST_CODE = 2
     }
 
-    private val viewModel: MainViewModel by viewModels()
-    private val imageData = ImageData(emptyMap())
-    private lateinit var adapter: ViewAdapter
+    private val viewModel = MainViewModel.getInstance()
     private lateinit var imageView: ImageView
+    private lateinit var adapter: ViewAdapter
     private lateinit var loadButton: Button
     private lateinit var editButton: Button
     private lateinit var recyclerView: RecyclerView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        adapter = ViewAdapter(imageData.tags)
+        adapter = ViewAdapter(viewModel.imageData.tags)
     }
 
     override fun onCreateView(
@@ -48,16 +45,12 @@ class MainFragment : Fragment() {
         val view = inflater.inflate(R.layout.fragment_main, container, false)
         imageView = view.findViewById(R.id.image_view)
         loadButton = view.findViewById(R.id.load)
-        loadButton.setOnClickListener { openImage() }
+        loadButton.setOnClickListener {
+            openImage()
+        }
         editButton = view.findViewById(R.id.edit)
         editButton.setOnClickListener {
-            val args = Bundle()
-            ImageData.editableTagNames.forEach { tagName ->
-                val pair = imageData.tags.find { tag -> tag.first == tagName }
-                val tagValue = pair?.second ?: ""
-                args.putString(tagName, tagValue)
-            }
-            it.findNavController().navigate(R.id.action_mainFragment_to_editFragment, args)
+            it.findNavController().navigate(R.id.action_mainFragment_to_editFragment)
         }
         recyclerView = view.findViewById(R.id.tags_list)
         recyclerView.layoutManager = LinearLayoutManager(context)
@@ -65,10 +58,23 @@ class MainFragment : Fragment() {
         return view
     }
 
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        if (viewModel.imageUri != Uri.EMPTY) {
+            loadImage(viewModel.imageUri)
+            editButton.isEnabled = true
+        }
+    }
+
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if(requestCode == REQUEST_CODE && resultCode == Activity.RESULT_OK){
-            loadImage(data)
+            val uri = getUri(data)
+            if (uri != null) {
+                loadImage(uri)
+                viewModel.imageUri = uri
+                editButton.isEnabled = true
+            }
         }
         super.onActivityResult(requestCode, resultCode, data)
     }
@@ -78,14 +84,15 @@ class MainFragment : Fragment() {
         startActivityForResult(pickPictureIntent, REQUEST_CODE)
     }
 
-    private fun loadImage(intent: Intent?) {
-        if (intent == null)
-            return
-        val pickedImage = intent.data ?: return
-        imageView.setImageURI(pickedImage)
-        val tags = loadExifTags(pickedImage, ImageData.tagNames)
-        imageData.tags.clear()
-        imageData.tags.addAll(tags)
+    private fun getUri(intent: Intent?): Uri? {
+        return intent?.data
+    }
+
+    private fun loadImage(uri: Uri) {
+        imageView.setImageURI(uri)
+        val tags = loadExifTags(uri, ImageData.tagNames)
+        viewModel.imageData.tags.clear()
+        viewModel.imageData.tags.addAll(tags)
         adapter.update()
     }
 
@@ -94,9 +101,7 @@ class MainFragment : Fragment() {
         val metadata = ExifInterface(inputStream!!)
         val tags = emptyList<Pair<String, String>>().toMutableList()
         tagNames.forEach {
-            val tag = metadata.getAttribute(it)
-            if (!tag.isNullOrEmpty())
-                tags.add(Pair(it, tag))
+            tags.add(Pair(it, metadata.getAttribute(it) ?: ""))
         }
         return tags
     }
